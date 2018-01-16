@@ -22,24 +22,30 @@ function createTracerMiddleware() {
   return (req, res, next) => {
     const conf = unpackOptions(arguments);
     const tracer = initTracer(conf.config, conf.options);
-    const parentContext = typeof req.get('uber-trace-id') === 'string' 
-      && SpanContext.fromString(req.get('uber-trace-id'));
-    const span = tracer.startSpan(req.originalUrl, { childOf: parentContext });
+    const parentContext = typeof req.get('uber-trace-id') === 'string' &&
+      SpanContext.fromString(req.get('uber-trace-id'));
+
+    let span
+    if (!parentContext) {
+      span = tracer.startSpan(req.originalUrl, { childOf: parentContext })
+                   .setTag(opentracing.Tags.SAMPLING_PRIORITY, 1);
+    }
+
+    const spanContext = parentContext ? parentContext
+      : span.context();
 
     res.traceStack = {
       tracer,
-      span,
-      parentContext: span.context()
+      parentContext: spanContext
     };
 
-    res.traceStack.span.setTag(opentracing.Tags.SAMPLING_PRIORITY, 1);
     const headers = {};
     res.traceStack.tracer.inject(res.traceStack.span,
       opentracing.FORMAT_HTTP_HEADERS,
       headers);
 
     res.on('finish', () => {
-      res.traceStack.span.finish();
+      span && span.finish();
     })
 
     next();

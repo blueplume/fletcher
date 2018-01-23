@@ -2,7 +2,7 @@ const opentracing = require("opentracing");
 const initTracer = require('jaeger-client').initTracer;
 const SpanContext = require('jaeger-client').SpanContext;
 
-function unpackOptions(arguments) {
+function unpackOptions(...args) {
   return (typeof arguments[0] === 'object' ? arguments[0] : {
     config: {
       serviceName: arguments[0],
